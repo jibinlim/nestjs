@@ -39,7 +39,7 @@ export class AuthService {
 
   async validateUser(
     newUser: UserDTO,
-  ): Promise<{ accessToken: string; email: string; name: string } | undefined> {
+  ): Promise<{ accessToken: string } | undefined> {
     let userFind: UserDTO = await this.userService.findByFields({
       where: { email: newUser.email },
     });
@@ -53,13 +53,11 @@ export class AuthService {
     if (!validatePassword) {
       throw new UnauthorizedException('비밀번호를 확인해주세요');
     }
-    const payload = { email: userFind.email, name: userFind.name };
+    const payload = { id: userFind.id };
     let accessToken = this.jwtService.sign(payload);
 
     return {
       accessToken: accessToken,
-      email: userFind.email,
-      name: userFind.name,
     };
   }
 
@@ -93,31 +91,6 @@ export class AuthService {
     return 'Success';
   }
 
-  // async changeEmail(changeEmail: ChangeEmail): Promise<string> {
-  //   let userFind: UserDTO = await this.userService.findByFields({
-  //     where: { email: changeEmail.nowemail },
-  //   });
-  //   if (!userFind) {
-  //     throw new HttpException('no user', HttpStatus.BAD_REQUEST);
-  //   }
-  //   const validatePassword = await bcrypt.compare(
-  //     changeEmail.password,
-  //     userFind.password,
-  //   );
-  //   if (!validatePassword) {
-  //     throw new UnauthorizedException();
-  //   }
-  //   let user: UserDTO = await this.userService.findByFields({
-  //     where: { email: changeEmail.changeemail },
-  //   });
-  //   if (user) {
-  //     throw new HttpException('user already used!', HttpStatus.BAD_REQUEST);
-  //   }
-  //   userFind.email = changeEmail.changeemail;
-  //   await this.userService.save(userFind);
-  //   return 'Success';
-  // }
-
   async deleteUser(newUser: UserDTO): Promise<string> {
     let userFind: UserDTO = await this.userService.findByFields({
       where: { email: newUser.email },
@@ -135,36 +108,50 @@ export class AuthService {
     return this.userService.delete(userFind);
   }
 
-  async issuenewtoken(token: string): Promise<Newtoken> {
+  async issuenewtoken(
+    token: string,
+  ): Promise<{ accessToken: string; user: Validation } | undefined> {
     let decoding = this.jwtService.decode(token);
-    if (
-      typeof decoding === 'object' &&
-      decoding.email !== undefined &&
-      decoding.name !== undefined
-    ) {
-      const payload = { email: decoding.email, name: decoding.name };
+    // let user = await this.userService.findByFields({
+    //   where: { id: decoding.id },
+    // });
+    if (typeof decoding === 'object' && decoding.id !== undefined) {
+      const { id } = decoding;
+      const payload = { id };
       const newToken = this.jwtService.sign(payload);
-
+      const user = await this.userService.findByFields({ where: { id: id } });
+      // return;
       return {
-        newtoken: newToken,
-        email: decoding.id,
-        name: decoding.name,
+        accessToken: newToken,
+        user: {
+          email: user.email,
+          name: user.name,
+        },
       };
     }
   }
 
-  async validateToken(token: string): Promise<Validation | Newtoken> {
+  async validateToken(
+    token: string,
+  ): Promise<
+    { accessToken: string; user: Validation } | { user: Validation } | undefined
+  > {
     let decoding = this.jwtService.decode(token);
+    if (!decoding) return null;
     if (typeof decoding === 'object' && decoding.exp !== undefined) {
       const { exp } = decoding;
       const date = new Date(exp * 1000);
       const now = new Date();
-      const five = new Date(now.getTime() + 10 * 60000);
-      if (date <= five) return this.issuenewtoken(token);
-      else {
+      const ten = new Date(now.getTime() + 10 * 60000);
+      if (date <= ten) return this.issuenewtoken(token);
+      else if (date < now) {
+        return null;
+      } else {
+        const { id } = decoding;
+        const user = await this.userService.findByFields({ where: { id: id } });
         return {
-          email: decoding.email,
-          name: decoding.name,
+          accessToken: token,
+          user: { email: user.email, name: user.name },
         };
       }
     }

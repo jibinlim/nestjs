@@ -1,4 +1,13 @@
-import { Controller, Post, Req, Body, Get, Patch, Query } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Req,
+  Body,
+  Get,
+  Patch,
+  Res,
+  Response,
+} from '@nestjs/common';
 import { UserDTO, Change, Validation } from './dto/user.dto';
 import { AuthService } from './auth.service';
 import { Request } from '@nestjs/common';
@@ -30,9 +39,11 @@ export class AuthController {
   @Get('/token')
   async token(
     @Req() req: Request,
-    @Query() tokenData: { token: string },
-  ): Promise<Validation> {
-    return await this.authService.validateToken(tokenData.token);
+  ): Promise<
+    { accessToken: string; user: Validation } | { user: Validation } | undefined
+  > {
+    const tokenData = req.headers['authorization'].split(' ')[1];
+    if (tokenData) return await this.authService.validateToken(tokenData);
   }
   // @Delete('/deleteUser')
   // async del(

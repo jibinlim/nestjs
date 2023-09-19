@@ -75,6 +75,7 @@ export class ScheduleService {
     schedule.title = scheduleUpdate.title;
     schedule.description = scheduleUpdate.description;
     schedule.category = scheduleUpdate.category;
+    // console.log(schedule);
     await this.scheduleRepository.save(schedule);
     return 'success';
   }
